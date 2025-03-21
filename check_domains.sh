@@ -144,7 +144,7 @@ while IFS= read -r domain || [ -n "$domain" ]; do
     else
         hosts_note=""
         hosts_flag=0
-    fi
+    f
 
     # DNS query using the specified or default DNS server
     if [[ -n "$dns_server" ]]; then
