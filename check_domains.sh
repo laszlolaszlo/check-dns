@@ -1,5 +1,5 @@
 #!/bin/bash
-# filepath: /home/llaszlo/fam/check_domains.sh
+
 # Check if the "dig" command is available
 if ! command -v dig &> /dev/null; then
     echo "Error: 'dig' command not found in PATH."
