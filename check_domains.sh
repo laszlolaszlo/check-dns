@@ -90,7 +90,7 @@ fi
 # Color codes for the results
 RED="\033[31m"
 GREEN="\033[32m"
-NC="\033[0m"  # Reset
+NC="\033[0m"
 
 # Flush DNS cache if possible and if the option was provided
 if [[ "$flush_cache" -eq 1 ]] && [[ -f /etc/os-release ]]; then
