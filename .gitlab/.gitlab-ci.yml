@@ -1,0 +1,16 @@
+stages:
+  - test
+
+test_check_domains:
+  stage: test
+  image: ubuntu:latest
+  before_script:
+    - apt-get update
+    - apt-get install -y dnsutils bind9-utils
+    - chmod +x check_domains.sh
+  script:
+    - echo "Running check_domains.sh using domains.txt as input"
+    - ./check_domains.sh --file domains.txt
+  only:
+    - merge_requests
+    - main

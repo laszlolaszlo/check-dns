@@ -1,46 +1,46 @@
 #!/bin/bash
 # filepath: /home/llaszlo/fam/check_domains.sh
-# Ellenőrizzük, hogy a "dig" parancs elérhető-e
+# Check if the "dig" command is available
 if ! command -v dig &> /dev/null; then
-    echo "Hiba: A 'dig' parancs nem található a PATH-ban."
-    echo "Telepítse azt a rendszerének megfelelő módon."
-    # Próbáljuk meghatározni a Linux disztribúciót az /etc/os-release alapján
+    echo "Error: 'dig' command not found in PATH."
+    echo "Install it as appropriate for your system."
+    # Attempt to determine the Linux distribution from /etc/os-release
     if [[ -f /etc/os-release ]]; then
         distro=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
         case "$distro" in
             ubuntu|debian)
-                echo "Debian/Ubuntu esetén használja: sudo apt update && sudo apt install dnsutils"
+                echo "For Debian/Ubuntu: use sudo apt update && sudo apt install dnsutils"
                 ;;
             centos|fedora|rhel|opensuse)
-                echo "CentOS/Fedora/RHEL esetén használja: sudo yum install bind-utils"
+                echo "For CentOS/Fedora/RHEL: use sudo yum install bind-utils"
                 ;;
             alpine)
-                echo "Alpine Linux esetén használja: sudo apk add bind-tools"
+                echo "For Alpine Linux: use sudo apk add bind-tools"
                 ;;
             arch)
-                echo "Arch Linux esetén használja: sudo pacman -S bind-tools"
+                echo "For Arch Linux: use sudo pacman -S bind-tools"
                 ;;
             gentoo)
-                echo "Gentoo esetén használja: sudo emerge net-dns/bind-tools"
+                echo "For Gentoo: use sudo emerge net-dns/bind-tools"
                 ;;
             manjaro)
-                echo "Manjaro esetén használja: sudo pacman -S bind-tools"
+                echo "For Manjaro: use sudo pacman -S bind-tools"
                 ;; 
             *)
-                echo "Kérem, telepítse a 'dig' parancsot tartalmazó csomagot a rendszerének megfelelő módon."
+                echo "Please install the package that provides the 'dig' command as appropriate for your system."
                 ;;
         esac
     else
-        echo "Nem sikerült meghatározni a disztribúciót. Kérem, telepítse a 'dig' parancsot tartalmazó csomagot."
+        echo "Could not determine the distribution. Please install the package that provides the 'dig' command."
     fi
     exit 1
 fi
 
-# Alapesetben nincs megadott DNS szerver, illetve nem flush-eljük a cache-t
+# By default, no DNS server is specified and we do not flush the cache
 dns_server=""
 flush_cache=0
 
-# Paraméterek feldolgozása
+# Process parameters
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dns)
@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
                 dns_server="$2"
                 shift 2
             else
-                echo "Hiba: A --dns kapcsolóhoz DNS szerver érték kell!"
-                echo "Példa: $0 --dns 8.8.8.8 --file /home/llaszlo/fam/fam-vegpontok.txt"
+                echo "Error: The --dns option requires a DNS server value!"
+                echo "Example: $0 --dns 8.8.8.8 --file /home/llaszlo/fam/fam-vegpontok.txt"
                 exit 1
             fi
             ;;
@@ -58,8 +58,8 @@ while [[ $# -gt 0 ]]; do
                 file="$2"
                 shift 2
             else
-                echo "Hiba: A --file kapcsolóhoz fájl elérési út szükséges!"
-                echo "Példa: $0 --file /home/llaszlo/fam/fam-vegpontok.txt"
+                echo "Error: The --file option requires a file path!"
+                echo "Example: $0 --file /home/llaszlo/fam/fam-vegpontok.txt"
                 exit 1
             fi
             ;;
@@ -68,76 +68,76 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "Használat: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
+            echo "Usage: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
             exit 1
             ;;
     esac
 done
 
-# Ellenőrizzük, hogy a --file kapcsoló meg lett-e adva
+# Check that the --file option was provided
 if [[ -z "$file" ]]; then
-    echo "Hiba: A --file kapcsoló kötelező!"
-    echo "Használat: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
+    echo "Error: The --file option is mandatory!"
+    echo "Usage: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
     exit 1
 fi
 
-# Fájl létezésének ellenőrzése
+# Check if the file exists
 if [[ ! -f "$file" ]]; then
-    echo "Hiba: Nem található a fájl: $file"
+    echo "Error: File not found: $file"
     exit 1
 fi
 
-# Színkódok az eredményekhez
+# Color codes for the results
 RED="\033[31m"
 GREEN="\033[32m"
 NC="\033[0m"  # Reset
 
-# DNS cache törlés, ha lehetséges és a kapcsoló meg lett adva
+# Flush DNS cache if possible and if the option was provided
 if [[ "$flush_cache" -eq 1 ]] && [[ -f /etc/os-release ]]; then
     distro=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
     case "$distro" in
         ubuntu|debian)
             if command -v systemd-resolve &> /dev/null; then
                 sudo systemd-resolve --flush-caches
-                echo "DNS cache törölve."
+                echo "DNS cache flushed."
             elif command -v resolvectl &> /dev/null; then
                 sudo resolvectl flush-caches
-                echo "DNS cache törölve."
+                echo "DNS cache flushed."
             fi
             ;;
         centos|fedora|rhel|opensuse)
             if systemctl status nscd &> /dev/null; then
                 sudo systemctl restart nscd
-                echo "DNS cache törölve."
+                echo "DNS cache flushed."
             fi
             ;;
         arch|manjaro)
             if systemctl is-active systemd-resolved &> /dev/null; then
                 sudo systemctl restart systemd-resolved
-                echo "DNS cache törölve."
+                echo "DNS cache flushed."
             fi
             ;;
         alpine)
-            # Alpine Linux: nincs szabványos DNS cache szolgáltatás
-            echo "DNS cache nem lett törölve."
+            # Alpine Linux: no standard DNS cache service
+            echo "DNS cache was not flushed."
             ;;
     esac
 fi
 
-# Fájl sorainak beolvasása és ellenőrzés
+# Read and process each line of the file
 while IFS= read -r domain || [ -n "$domain" ]; do
-    # Üres sorok kihagyása
+    # Skip empty lines
     if [[ -z "$domain" ]]; then
         continue
     fi
 
-    # Ellenőrizzük, hogy a domain csak érvényes karaktereket tartalmaz (betűk, számok, pont, kötőjel)
+    # Check if the domain contains only valid characters (letters, numbers, dot, hyphen)
     if ! [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-        echo -e "${RED}✖${NC} Érvénytelen domain: $domain"
+        echo -e "${RED}✖${NC} Invalid domain: $domain"
         continue
     fi
 
-    # Ellenőrizzük, hogy szerepel-e az adott domain a /etc/hosts file-ban
+    # Check if the domain exists in the /etc/hosts file
     if grep -qw "$domain" /etc/hosts; then
         hosts_note=" (/etc/hosts)"
         hosts_flag=1
@@ -146,16 +146,16 @@ while IFS= read -r domain || [ -n "$domain" ]; do
         hosts_flag=0
     fi
 
-    # DNS lekérdezés a megadott vagy alapértelmezett DNS szerverrel
+    # DNS query using the specified or default DNS server
     if [[ -n "$dns_server" ]]; then
         result=$(dig @"$dns_server" "$domain" A +short)
     else
         result=$(dig "$domain" A +short)
     fi
 
-    # Eredmény kiértékelése és megjelenítése
+    # Evaluate and display the result
     if [[ -n "$result" ]]; then
-        # Egy sorba fűzzük a több eredményt, vesszővel elválasztva
+        # Concatenate multiple results into one line, separated by commas
         ips=$(echo "$result" | paste -sd, -)
         if [[ $hosts_flag -eq 1 ]]; then
             echo -e "${RED}✔${NC} $domain${hosts_note} ($ips)"
@@ -170,6 +170,6 @@ while IFS= read -r domain || [ -n "$domain" ]; do
         fi
     fi
 
-    # Várakozás 1 másodpercet, hogy ne terheljük a DNS szervert
+    # Wait 1 second to avoid overloading the DNS server
     sleep 1
 done < "$file"
