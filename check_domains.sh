@@ -36,8 +36,9 @@ if ! command -v dig &> /dev/null; then
     exit 1
 fi
 
-# Alapesetben nincs megadott DNS szerver
+# Alapesetben nincs megadott DNS szerver, illetve nem flush-eljük a cache-t
 dns_server=""
+flush_cache=0
 
 # Paraméterek feldolgozása
 while [[ $# -gt 0 ]]; do
@@ -62,8 +63,12 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --flush-cache)
+            flush_cache=1
+            shift
+            ;;
         *)
-            echo "Használat: $0 [--dns DNS_SERVER] --file FILE_PATH"
+            echo "Használat: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
             exit 1
             ;;
     esac
@@ -72,7 +77,7 @@ done
 # Ellenőrizzük, hogy a --file kapcsoló meg lett-e adva
 if [[ -z "$file" ]]; then
     echo "Hiba: A --file kapcsoló kötelező!"
-    echo "Használat: $0 [--dns DNS_SERVER] --file FILE_PATH"
+    echo "Használat: $0 [--dns DNS_SERVER] [--flush-cache] --file FILE_PATH"
     exit 1
 fi
 
@@ -87,11 +92,53 @@ RED="\033[31m"
 GREEN="\033[32m"
 NC="\033[0m"  # Reset
 
+# DNS cache törlés, ha lehetséges és a kapcsoló meg lett adva
+if [[ "$flush_cache" -eq 1 ]] && [[ -f /etc/os-release ]]; then
+    distro=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    case "$distro" in
+        ubuntu|debian)
+            if command -v systemd-resolve &> /dev/null; then
+                sudo systemd-resolve --flush-caches
+            elif command -v resolvectl &> /dev/null; then
+                sudo resolvectl flush-caches
+            fi
+            ;;
+        centos|fedora|rhel|opensuse)
+            if systemctl status nscd &> /dev/null; then
+                sudo systemctl restart nscd
+            fi
+            ;;
+        arch|manjaro)
+            if systemctl is-active systemd-resolved &> /dev/null; then
+                sudo systemctl restart systemd-resolved
+            fi
+            ;;
+        alpine)
+            # Alpine Linux: nincs szabványos DNS cache szolgáltatás
+            ;;
+    esac
+fi
+
 # Fájl sorainak beolvasása és ellenőrzés
 while IFS= read -r domain || [ -n "$domain" ]; do
     # Üres sorok kihagyása
     if [[ -z "$domain" ]]; then
         continue
+    fi
+
+    # Ellenőrizzük, hogy a domain csak érvényes karaktereket tartalmaz (betűk, számok, pont, kötőjel)
+    if ! [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        echo -e "${RED}✖${NC} Érvénytelen domain: $domain"
+        continue
+    fi
+
+    # Ellenőrizzük, hogy szerepel-e az adott domain a /etc/hosts file-ban
+    if grep -qw "$domain" /etc/hosts; then
+        hosts_note=" (/etc/hosts)"
+        hosts_flag=1
+    else
+        hosts_note=""
+        hosts_flag=0
     fi
 
     # DNS lekérdezés a megadott vagy alapértelmezett DNS szerverrel
@@ -103,9 +150,19 @@ while IFS= read -r domain || [ -n "$domain" ]; do
 
     # Eredmény kiértékelése és megjelenítése
     if [[ -n "$result" ]]; then
-        echo -e "${GREEN}✔${NC} $domain"
+        # Egy sorba fűzzük a több eredményt, vesszővel elválasztva
+        ips=$(echo "$result" | paste -sd, -)
+        if [[ $hosts_flag -eq 1 ]]; then
+            echo -e "${RED}✔${NC} $domain${hosts_note} ($ips)"
+        else
+            echo -e "${GREEN}✔${NC} $domain ($ips)"
+        fi
     else
-        echo -e "${RED}✖${NC} $domain"
+        if [[ $hosts_flag -eq 1 ]]; then
+            echo -e "${RED}✖${NC} $domain${hosts_note}"
+        else
+            echo -e "${RED}✖${NC} $domain"
+        fi
     fi
 
     # Várakozás 1 másodpercet, hogy ne terheljük a DNS szervert
