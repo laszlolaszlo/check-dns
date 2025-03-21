@@ -99,22 +99,27 @@ if [[ "$flush_cache" -eq 1 ]] && [[ -f /etc/os-release ]]; then
         ubuntu|debian)
             if command -v systemd-resolve &> /dev/null; then
                 sudo systemd-resolve --flush-caches
+                echo "DNS cache törölve."
             elif command -v resolvectl &> /dev/null; then
                 sudo resolvectl flush-caches
+                echo "DNS cache törölve."
             fi
             ;;
         centos|fedora|rhel|opensuse)
             if systemctl status nscd &> /dev/null; then
                 sudo systemctl restart nscd
+                echo "DNS cache törölve."
             fi
             ;;
         arch|manjaro)
             if systemctl is-active systemd-resolved &> /dev/null; then
                 sudo systemctl restart systemd-resolved
+                echo "DNS cache törölve."
             fi
             ;;
         alpine)
             # Alpine Linux: nincs szabványos DNS cache szolgáltatás
+            echo "DNS cache nem lett törölve."
             ;;
     esac
 fi
