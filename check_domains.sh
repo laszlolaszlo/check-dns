@@ -88,7 +88,7 @@ GREEN="\033[32m"
 NC="\033[0m"  # Reset
 
 # Fájl sorainak beolvasása és ellenőrzés
-while IFS= read -r domain; do
+while IFS= read -r domain || [ -n "$domain" ]; do
     # Üres sorok kihagyása
     if [[ -z "$domain" ]]; then
         continue
